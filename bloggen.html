@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Genesis post</title>
+    <title>Building a Static Blog Generator in Modern C++</title>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css"
@@ -31,13 +31,120 @@
     </style>
   </head>
   <body>
-    <article><h1>A new project with a new blog</h1>
-<p>I have been working on a little side project, a static site generator with some very barebones blog engine. It's written in C++.</p>
-<p>Here's a C++ code snippet :</p>
-<pre><code class="language-cpp">#include &lt;iostream&gt;
-int main(){ std::cout &lt;&lt; &quot;Hello&quot;; }
+    <article><h2>Why build your own blog engine?</h2>
+<p>There are plenty of static site generators out there (Hugo, Jekyll, Zola...) but I wanted something that felt <em>mine</em>.
+Something very barebone, small, fast, and written in <strong>Modern C++</strong>.</p>
+<p>So I built a tiny blog generator called <strong><code>bloggen</code></strong>.</p>
+<p>It reads Markdown posts, converts them to HTML, applies templates, and writes everything into an <code>output/</code> directory ready to be deployed to GitHub Pages.</p>
+<hr>
+<h2>Parsing Markdown with <code>md4c</code></h2>
+<p>To handle Markdown parsing, I chose <a href="https://github.com/mity/md4c">md4c</a>, a lightweight C parser that can produce HTML via its <code>md_html()</code> function.</p>
+<p>In my C++ wrapper (<code>markdown.cpp</code>):</p>
+<pre><code class="language-cpp">#include &quot;markdown.hpp&quot;
+#include &quot;md4c-html.h&quot;
+#include &lt;sstream&gt;
+
+std::string markdown_to_html(const std::string&amp; markdown) {
+    std::ostringstream html;
+
+    auto callback = [](const MD_CHAR* text, MD_SIZE size, void* userdata) {
+        std::ostringstream* out = static_cast&lt;std::ostringstream*&gt;(userdata);
+        out-&gt;write(text, size);
+    };
+
+    md_html(markdown.c_str(), markdown.size(), callback, &amp;html, 0, 0);
+    return html.str();
+}
 </code></pre>
-<p>See you around soon!</p>
+<h2>Templating with inja <code>inja</code></h2>
+<p>Once the Markdown is converted, I use <a href="https://github.com/pantor/inja">inja</a>, a fast, modern templating engine for C++ that feels a lot like Jinja2.</p>
+<p>Here’s how a single post is rendered:</p>
+<pre><code class="language-cpp">#include &quot;renderer.hpp&quot;
+#include &lt;inja/inja.hpp&gt;
+
+std::string render_template(const std::string&amp; template_path,
+                            const nlohmann::json&amp; data) {
+    inja::Environment env;
+    return env.render_file(template_path, data);
+</code></pre>
+<p>Templates live in <code>/templates</code>, so a minimalistic <code>post.html</code> might look like this:</p>
+<pre><code class="language-cpp">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;meta charset=&quot;utf-8&quot; /&gt;
+    &lt;title&gt;{{ title }}&lt;/title&gt;
+    &lt;link
+      rel=&quot;stylesheet&quot;
+      href=&quot;https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css&quot;
+    /&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;style.css&quot; /&gt;
+    &lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js&quot;&gt;&lt;/script&gt;
+
+    &lt;script&gt;
+      hljs.highlightAll();
+    &lt;/script&gt;
+    &lt;style&gt;
+      body {
+        max-width: 700px;
+        margin: 40px auto;
+        font-family: system-ui, sans-serif;
+        line-height: 1.6;
+        background: #fafafa;
+        color: #222;
+      }
+      pre {
+        background: #f4f4f4;
+        padding: 10px;
+        border-radius: 8px;
+        overflow-x: auto;
+      }
+    &lt;/style&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;article&gt;{{ content }}&lt;/article&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<h2>Metadata and sorting with YAML front matter</h2>
+<p>Each Markdown file begins with a YAML header to store metadata:</p>
+<pre><code class="language-yaml">---
+title: My First Post
+date: 2025-09-24
+tags: [cpp, bloggen]
+---
+</code></pre>
+<p>I parse this using <a href="https://github.com/jbeder/yaml-cpp">yaml-cpp</a> and store it in a simple struct.</p>
+<pre><code class="language-cpp">struct PostMeta {
+  std::string title;
+  std::string date_iso;
+  std::string date_pretty;
+  std::vector&lt;std::string&gt; tags;
+  std::string filename;
+};
+</code></pre>
+<p>Then I collect all posts, sort them by date, and render an index page listing them:</p>
+<pre><code class="language-cpp">std::sort(posts_json.begin(), posts_json.end(),
+            [](const auto &amp;a, const auto &amp;b) {
+              return a[&quot;date_iso&quot;] &gt; b[&quot;date_iso&quot;];
+            });
+</code></pre>
+<h2>Deployment with GitHub Pages</h2>
+<p>After generating everything into /output, deployment is automatic via GitHub Actions.
+Whenever I push new Markdown files to main, GitHub builds the project, runs bloggen, and publishes the output to my public site repository.</p>
+<pre><code class="language-yaml">- name: Deploy to bitfield.github.io
+  uses: peaceiris/actions-gh-pages@v4
+  with:
+    external_repository: bitfield/bitfield.github.io
+    publish_branch: main
+    publish_dir: ./output
+    personal_token: ${{ secrets.BLOGGEN_DEPLOY_TOKEN }}
+</code></pre>
+<p>Result: every post gets built and published in seconds.</p>
+<h2>Why C++?</h2>
+<p>C++ may not be the most obvious choice for a static site generator, but that’s part of the fun.
+It’s fast, strongly typed, and expressive enough to build something clean and minimal.</p>
+<p>bloggen is under 500 lines of code, has zero runtime dependencies, and gives me full control over how my site is built.</p>
+<p>I might try a Rust / Zig version out of curiosity.</p>
 </article>
   </body>
 </html>
