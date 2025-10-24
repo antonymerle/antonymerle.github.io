@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -7,7 +7,6 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css"
     />
-    <link rel="stylesheet" href="style.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
 
     <script>
@@ -31,6 +30,7 @@
     </style>
   </head>
   <body>
+    <h1>Building a Static Blog Generator in Modern C++</h1>
     <article><h2>Why build your own blog engine?</h2>
 <p>There are plenty of static site generators out there (Hugo, Jekyll, Zola...) but I wanted something that felt <em>mine</em>.
 Something very barebone, small, fast, and written in <strong>Modern C++</strong>.</p>
@@ -38,7 +38,7 @@ Something very barebone, small, fast, and written in <strong>Modern C++</strong>
 <p>It reads Markdown posts, converts them to HTML, applies templates, and writes everything into an <code>output/</code> directory ready to be deployed to GitHub Pages.</p>
 <hr>
 <h2>Parsing Markdown with <code>md4c</code></h2>
-<p>To handle Markdown parsing, I chose <a href="https://github.com/mity/md4c">md4c</a>, a lightweight C parser that can produce HTML via its <code>md_html()</code> function.</p>
+<p>To handle Markdown parsing, I chose <a href="https://github.com/mity/md4c">md4c</a>, a lightweight C parser that can produce HTML via its <code>markdown_to_html()</code> function.</p>
 <p>In my C++ wrapper (<code>markdown.cpp</code>):</p>
 <pre><code class="language-cpp">#include &quot;markdown.hpp&quot;
 #include &quot;md4c-html.h&quot;
@@ -56,7 +56,7 @@ std::string markdown_to_html(const std::string&amp; markdown) {
     return html.str();
 }
 </code></pre>
-<h2>Templating with inja <code>inja</code></h2>
+<h2>Templating with <code>inja</code></h2>
 <p>Once the Markdown is converted, I use <a href="https://github.com/pantor/inja">inja</a>, a fast, modern templating engine for C++ that feels a lot like Jinja2.</p>
 <p>Here’s how a single post is rendered:</p>
 <pre><code class="language-cpp">#include &quot;renderer.hpp&quot;
